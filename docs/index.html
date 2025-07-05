@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enhanced Radar Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      background-color: #0d0d0d;
+    }
+    canvas {
+      display: block;
+      background-color: #000;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+      touch-action: none;
+      margin: auto;
+      margin-top: 50px;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pulse-animation {
+      animation: pulse 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- عنصر الكانفس للرادار -->
+  <canvas id="radar" width="500" height="500"></canvas>
+
+  <!-- سكربت الرادار المتحرك -->
+  <script>
+    const canvas = document.getElementById("radar");
+    const ctx = canvas.getContext("2d");
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 240;
+    let angle = 0;
+
+    function drawRadar() {
+      // خلفية سوداء شفافة لإعطاء تأثير التلاشي
+      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // رسم الدوائر
+      ctx.strokeStyle = "#00ff00";
+      ctx.lineWidth = 1;
+      for (let r = 50; r <= radius; r += 50) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // رسم الخط الدوار (الوميض)
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(radius, 0);
+      ctx.strokeStyle = "#00ff00";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // زيادة الزاوية
+      angle += 0.02;
+      requestAnimationFrame(drawRadar);
+    }
+
+    drawRadar();
+  </script>
+</body>
+</html>
