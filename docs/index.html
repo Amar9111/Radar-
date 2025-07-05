@@ -1,80 +1,3486 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Enhanced Radar Simulation</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      overflow: hidden;
-      background-color: #0d0d0d;
-    }
-    canvas {
-      display: block;
-      background-color: #000;
-      border-radius: 1rem;
-      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-      touch-action: none;
-      margin: auto;
-      margin-top: 50px;
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    .pulse-animation {
-      animation: pulse 2s infinite ease-in-out;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
 </head>
-<body>
-  <!-- عنصر الكانفس للرادار -->
-  <canvas id="radar" width="500" height="500"></canvas>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
 
-  <!-- سكربت الرادار المتحرك -->
-  <script>
-    const canvas = document.getElementById("radar");
-    const ctx = canvas.getContext("2d");
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 240;
-    let angle = 0;
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
 
-    function drawRadar() {
-      // خلفية سوداء شفافة لإعطاء تأثير التلاشي
-      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
 
-      // رسم الدوائر
-      ctx.strokeStyle = "#00ff00";
-      ctx.lineWidth = 1;
-      for (let r = 50; r <= radius; r += 50) {
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
 
-      // رسم الخط الدوار (الوميض)
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(radius, 0);
-      ctx.strokeStyle = "#00ff00";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
 
-      // زيادة الزاوية
-      angle += 0.02;
-      requestAnimationFrame(drawRadar);
-    }
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
 
-    drawRadar();
-  </script>
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
+
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
+
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
+
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
+
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
+
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
+
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
+
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
+
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
+
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
+
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
+
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
+
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Radar Simulation</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the canvas and overall layout */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #0d0d0d; /* Dark background */
+        }
+        canvas {
+            display: block;
+            background-color: #000; /* Black background for radar */
+            border-radius: 1rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+        /* Styling for the info boxes */
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #00ff00;
+            font-family: 'monospace', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        /* Keyframe animation for pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        /* Style for the audio meter */
+        #audio-meter-bar {
+            height: 10px;
+            background-color: #00ff00;
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 text-green-400">
+
+    <!-- Main container for the radar and controls -->
+    <div class="flex flex-col md:flex-row items-center justify-center w-full max-w-7xl gap-6">
+
+        <!-- HUD and Controls Panel -->
+        <div class="flex flex-col gap-4 w-full md:w-1/4 lg:w-1/5 p-4 bg-gray-900 bg-opacity-70 rounded-xl shadow-lg border border-green-700">
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">RADAR STATUS:</span>
+                <span id="status-text" class="text-bright-green pulse-animation">ACTIVE</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">CONTACTS:</span>
+                <span id="contact-count" class="text-yellow-300">0</span>
+            </div>
+            <div class="info-box flex justify-between items-center">
+                <span class="text-green-300">BEARING:</span>
+                <span id="bearing-text" class="text-blue-300">000°</span>
+            </div>
+
+            <!-- Microphone Controls -->
+            <div class="info-box flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-green-300">MIC STATUS:</span>
+                    <span id="mic-status-text" class="text-red-500">OFF</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full">
+                    <div id="audio-meter-bar"></div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Start Mic
+                    </button>
+                    <button id="stop-mic-btn" class="flex-1 px-4 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                        Stop Mic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-3">
+                <button id="clear-targets-btn" class="w-full px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Clear Targets (Space)
+                </button>
+                <button id="add-target-btn" class="w-full px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">
+                    Add Random Target (Debug)
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="mt-6 text-sm text-green-500">
+                <p><strong>Instructions:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">ESC</kbd> - Exit (Close Tab)</li>
+                    <li><kbd class="bg-gray-700 px-2 py-1 rounded">SPACE</kbd> - Clear Targets</li>
+                    <li>Use mic to generate targets!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Canvas for Radar Display -->
+        <div class="relative w-full md:w-3/4 lg:w-4/5 flex items-center justify-center aspect-square md:aspect-auto">
+            <canvas id="radarCanvas" class="w-full h-auto max-h-[90vh]"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get HUD elements
+        const statusText = document.getElementById('status-text');
+        const contactCountText = document.getElementById('contact-count');
+        const bearingText = document.getElementById('bearing-text');
+        const clearTargetsBtn = document.getElementById('clear-targets-btn');
+        const addTargetBtn = document.getElementById('add-target-btn'); // Debug button
+        const micStatusText = document.getElementById('mic-status-text');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const stopMicBtn = document.getElementById('stop-mic-btn');
+        const audioMeterBar = document.getElementById('audio-meter-bar');
+
+        // Radar settings
+        let WIDTH = window.innerWidth * 0.8; // Initial width, will be updated on resize
+        let HEIGHT = window.innerHeight * 0.8; // Initial height, will be updated on resize
+        let CENTER = [WIDTH / 2, HEIGHT / 2];
+        let RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Adjusted radius for better padding
+
+        const ANGLE_SPEED = 0.04; // Slightly faster sweep
+        const WAVE_SPEED = 3; // Speed of the radar waves
+
+        // Variables
+        let angle = 0; // Current sweep angle
+        let dots = []; // Array to store target objects
+        let waveRadius = 0; // Current radius of the radar wave
+        let sweepTrail = []; // Array to store past angles for the sweep trail
+
+        // Colors (using RGBA for transparency)
+        const GREEN = 'rgba(0, 255, 0, 1)';
+        const BRIGHT_GREEN = 'rgba(100, 255, 100, 1)';
+        const DARK_GREEN = 'rgba(0, 100, 0, 1)';
+        const BLACK = 'rgba(0, 0, 0, 1)';
+        const BLUE = 'rgba(0, 150, 255, 1)';
+        const YELLOW = 'rgba(255, 255, 0, 1)';
+        const RED = 'rgba(255, 50, 50, 1)';
+        const THREAT_PULSE_COLOR = 'rgba(255, 100, 100, 0.5)'; // For threat pulse effect
+
+        // Target types with distinct properties
+        const targetTypes = [
+            { color: BRIGHT_GREEN, size: 4, name: 'Aircraft', detectionRange: 0.15, lifespan: 5000 },
+            { color: BLUE, size: 3, name: 'Ship', detectionRange: 0.12, lifespan: 6000 },
+            { color: YELLOW, size: 3, name: 'Unknown', detectionRange: 0.1, lifespan: 4500 },
+            { color: RED, size: 5, name: 'Threat', detectionRange: 0.2, lifespan: 4000 }
+        ];
+
+        // Microphone variables
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+        let audioDataArray;
+        let micActive = false;
+        let lastTargetTime = 0;
+        const TARGET_COOLDOWN = 500; // milliseconds between target spawns from mic
+        const MIC_THRESHOLD = 15; // Volume threshold to trigger a target (adjust as needed)
+
+        /**
+         * Resizes the canvas to fit the window and updates radar parameters.
+         */
+        function resizeCanvas() {
+            // Get current dimensions of the parent container to make canvas responsive
+            const parent = canvas.parentElement;
+            WIDTH = parent.clientWidth;
+            HEIGHT = parent.clientHeight;
+
+            // Set canvas dimensions
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+
+            // Recalculate center and radius based on new dimensions
+            CENTER = [WIDTH / 2, HEIGHT / 2];
+            RADIUS = Math.min(WIDTH, HEIGHT) / 2 - 50; // Maintain padding
+        }
+
+        /**
+         * Draws the static radar grid, including circles and radial lines.
+         */
+        function drawRadarGrid() {
+            // Main radar circle
+            ctx.beginPath();
+            ctx.arc(CENTER[0], CENTER[1], RADIUS, 0, 2 * Math.PI);
+            ctx.strokeStyle = GREEN;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner circles
+            for (let r = 100; r < RADIUS; r += 100) {
+                ctx.beginPath();
+                ctx.arc(CENTER[0], CENTER[1], r, 0, 2 * Math.PI);
+                ctx.strokeStyle = DARK_GREEN;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Radial lines
+            for (let a = 0; a < 360; a += 30) {
+                const rad = Math.radians(a);
+                const x = CENTER[0] + RADIUS * Math.cos(rad);
+                const y = CENTER[1] + RADIUS * Math.sin(rad);
+                const color = (a % 90 === 0) ? GREEN : DARK_GREEN;
+                const thickness = (a % 90 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws the sweeping line and its fading trail.
+         */
+        function drawSweep() {
+            // Add current angle to the sweep trail
+            sweepTrail.push(angle);
+            // Keep the trail length limited for performance and visual effect
+            if (sweepTrail.length > 30) { // Increased trail length for smoother fade
+                sweepTrail.shift(); // Remove oldest angle
+            }
+
+            // Draw the sweep trail
+            for (let i = 0; i < sweepTrail.length; i++) {
+                const trailAngle = sweepTrail[i];
+                const alpha = (i / sweepTrail.length); // Fade from transparent to opaque
+                const xEnd = CENTER[0] + RADIUS * Math.cos(trailAngle);
+                const yEnd = CENTER[1] + RADIUS * Math.sin(trailAngle);
+                const trailColor = `rgba(0, 255, 0, ${alpha * 0.7})`; // Green with varying alpha
+                const thickness = Math.max(1, 4 - (sweepTrail.length - i) / 10); // Thicker closer to the current sweep
+
+                ctx.beginPath();
+                ctx.moveTo(CENTER[0], CENTER[1]);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.strokeStyle = trailColor;
+                ctx.lineWidth = thickness;
+                ctx.stroke();
+            }
+
+            // Draw the current sweep line (most prominent)
+            const xCurrent = CENTER[0] + RADIUS * Math.cos(angle);
+            const yCurrent = CENTER[1] + RADIUS * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(CENTER[0], CENTER[1]);
+            ctx.lineTo(xCurrent, yCurrent);
+            ctx.strokeStyle = BRIGHT_GREEN;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        /**
+         * Draws the expanding radar waves.
+         */
+        function drawWaves() {
+            for (let i = 0; i < 3; i++) {
+                // Calculate current wave radius with offset
+                let currentWave = (waveRadius + i * 150) % (RADIUS + 200);
+                if (currentWave <= RADIUS) {
+                    // Calculate intensity based on distance from center
+                    const intensity = 1 - (currentWave / RADIUS); // Fades out as it expands
+                    const waveColor = `rgba(0, 255, 0, ${intensity * 0.5})`; // Green with transparency
+
+                    ctx.beginPath();
+                    ctx.arc(CENTER[0], CENTER[1], currentWave, 0, 2 * Math.PI);
+                    ctx.strokeStyle = waveColor;
+                    ctx.lineWidth = 1.5; // Slightly thicker waves
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /**
+         * Generates a new target. Can be triggered randomly or by mic input.
+         * @param {boolean} fromMic - True if triggered by microphone input.
+         */
+        function generateTarget(fromMic = false) {
+            const now = Date.now();
+            if (fromMic && (now - lastTargetTime < TARGET_COOLDOWN)) {
+                return; // Apply cooldown for mic-triggered targets
+            }
+
+            const distance = Math.random() * (RADIUS - 70) + 50; // Ensure targets are within radar bounds
+            const targetAngle = Math.random() * 2 * Math.PI;
+            const x = CENTER[0] + distance * Math.cos(targetAngle);
+            const y = CENTER[1] + distance * Math.sin(targetAngle);
+            const type = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+
+            dots.push({
+                pos: [x, y],
+                type: type,
+                birthTime: now, // Use Date.now() for accurate time
+                detected: false,
+                lastDetectionTime: 0, // Time when it was last detected
+                detectionFadeTimer: 0
+            });
+
+            if (fromMic) {
+                lastTargetTime = now;
+            }
+        }
+
+        /**
+         * Updates and draws existing targets.
+         */
+        function updateTargets() {
+            const now = Date.now();
+            const newDots = [];
+
+            for (const dot of dots) {
+                const age = now - dot.birthTime;
+
+                // Remove targets that have exceeded their lifespan
+                if (age > dot.type.lifespan) {
+                    continue;
+                }
+
+                const dotX = dot.pos[0];
+                const dotY = dot.pos[1];
+
+                // Calculate angle of the dot relative to the center
+                let dotAngle = Math.atan2(dotY - CENTER[1], dotX - CENTER[0]);
+                if (dotAngle < 0) {
+                    dotAngle += 2 * Math.PI; // Normalize angle to 0-2PI
+                }
+
+                // Check if the dot is currently being swept over
+                const angleDiff = Math.abs(dotAngle - angle);
+                const wrappedAngleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff); // Handle angle wrap-around
+
+                if (wrappedAngleDiff < dot.type.detectionRange) { // Use type-specific detection range
+                    dot.detected = true;
+                    dot.lastDetectionTime = now;
+                    dot.detectionFadeTimer = 1000; // Reset fade timer on detection
+                } else {
+                    // If not currently detected, start fading out the "detected" state
+                    if (dot.detected) {
+                        dot.detectionFadeTimer -= 16; // Decrease by frame time (approx 16ms for 60fps)
+                        if (dot.detectionFadeTimer <= 0) {
+                            dot.detected = false;
+                        }
+                    }
+                }
+
+                // Draw the dot if detected or recently detected
+                if (dot.detected || dot.detectionFadeTimer > 0) {
+                    // Calculate fade alpha based on detectionFadeTimer
+                    const fadeAlpha = Math.min(1, dot.detectionFadeTimer / 1000);
+                    const color = dot.type.color.replace('1)', `${fadeAlpha})`); // Apply fade to color
+                    const size = dot.type.size;
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, size, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Draw a pulsating outer ring for 'Threat' targets
+                    if (dot.type.name === 'Threat') {
+                        const pulseScale = 1 + Math.sin(now * 0.005) * 0.2; // Pulsating effect
+                        const pulseAlpha = 0.5 - Math.sin(now * 0.005) * 0.2; // Fading effect
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, size + 4 * pulseScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = THREAT_PULSE_COLOR.replace('0.5)', `${pulseAlpha})`);
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Draw target name label
+                    ctx.fillStyle = color;
+                    ctx.font = '12px monospace';
+                    ctx.fillText(dot.type.name, dotX + size + 5, dotY + size + 5);
+                }
+                newDots.push(dot);
+            }
+            dots = newDots; // Update the dots array
+        }
+
+        /**
+         * Updates the Heads-Up Display (HUD) elements.
+         */
+        function drawHud() {
+            const detectedCount = dots.filter(d => d.detected || d.detectionFadeTimer > 0).length;
+            contactCountText.textContent = detectedCount;
+
+            const bearing = Math.floor(Math.degrees(angle) % 360);
+            bearingText.textContent = `${bearing.toString().padStart(3, '0')}°`;
+        }
+
+        /**
+         * Starts the microphone input and audio processing.
+         */
+        async function startMicrophone() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Fast Fourier Transform size
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                microphone.connect(analyser);
+
+                // This creates a ScriptProcessorNode to process audio.
+                // It's deprecated, but widely supported and simpler for basic volume detection.
+                // For more advanced use cases, AudioWorklet is preferred.
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination); // Connect to speakers (optional)
+
+                javascriptNode.onaudioprocess = () => {
+                    analyser.getByteFrequencyData(audioDataArray);
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    const average = sum / audioDataArray.length;
+
+                    // Update audio meter visually
+                    const meterWidth = (average / 255) * 100; // Max value is 255
+                    audioMeterBar.style.width = `${meterWidth}%`;
+
+                    // Generate target if volume exceeds threshold and cooldown is over
+                    if (average > MIC_THRESHOLD && (Date.now() - lastTargetTime > TARGET_COOLDOWN)) {
+                        generateTarget(true); // Trigger target from mic
+                    }
+                };
+
+                micActive = true;
+                micStatusText.textContent = 'ACTIVE';
+                micStatusText.classList.remove('text-red-500');
+                micStatusText.classList.add('text-green-500');
+                startMicBtn.disabled = true;
+                stopMicBtn.disabled = false;
+                console.log('Microphone started.');
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                micStatusText.textContent = 'ERROR';
+                micStatusText.classList.remove('text-green-500');
+                micStatusText.classList.add('text-red-500');
+                startMicBtn.disabled = false;
+                stopMicBtn.disabled = true;
+                // Inform the user about the error
+                alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+            }
+        }
+
+        /**
+         * Stops the microphone input.
+         */
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone.mediaStream.getTracks().forEach(track => track.stop()); // Stop all tracks
+                microphone = null;
+            }
+            if (analyser) {
+                analyser.disconnect();
+                analyser = null;
+            }
+            if (javascriptNode) {
+                javascriptNode.disconnect();
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            micActive = false;
+            micStatusText.textContent = 'OFF';
+            micStatusText.classList.remove('text-green-500');
+            micStatusText.classList.add('text-red-500');
+            audioMeterBar.style.width = '0%'; // Reset meter
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone stopped.');
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Update radar sweep angle
+            angle += ANGLE_SPEED;
+            if (angle > 2 * Math.PI) {
+                angle = 0;
+            }
+
+            // Update radar wave radius
+            waveRadius += WAVE_SPEED;
+            if (waveRadius > RADIUS + 200) {
+                waveRadius = 0;
+            }
+
+            // Draw all radar elements
+            drawWaves();
+            drawRadarGrid();
+            drawSweep();
+            // generateTargets() is now replaced by mic input or manual button
+            updateTargets();
+            drawHud();
+
+            // Request the next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Utility function to convert radians to degrees
+        Math.degrees = function(rad) {
+            return rad * (180 / Math.PI);
+        };
+
+        // Utility function to convert degrees to radians
+        Math.radians = function(deg) {
+            return deg * (Math.PI / 180);
+        };
+
+        // Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial resize
+            animate(); // Start the animation loop
+            stopMicBtn.disabled = true; // Initially disable stop button
+        });
+
+        window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
+
+        // Keyboard event listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // In a browser environment, 'Escape' typically closes the tab or stops loading.
+                // We can't "exit" the program like in Pygame, but we can log a message.
+                console.log('Escape pressed: Simulation stopping (in a real app, this would exit).');
+                // For a web app, you might hide the canvas or show a "Game Over" screen.
+            } else if (event.key === ' ') {
+                dots.length = 0; // Clear all targets
+                contactCountText.textContent = 0; // Update HUD immediately
+            }
+        });
+
+        // Button event listeners
+        clearTargetsBtn.addEventListener('click', () => {
+            dots.length = 0; // Clear all targets
+            contactCountText.textContent = 0; // Update HUD immediately
+        });
+
+        addTargetBtn.addEventListener('click', () => {
+            // Manually add a target when the button is clicked (for debug/testing)
+            generateTarget(false);
+        });
+
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+
+    </script>
 </body>
 </html>
